@@ -6,21 +6,22 @@ import { chatColumns, type ChatData } from '@/components/admin/chat-columns';
 import { AdminNavbar } from '@/components/admin/admin-navbar';
 
 interface AdminPageProps {
-  searchParams: {
+  searchParams: Promise<{
     page?: string;
     pageSize?: string;
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
     search?: string;
-  };
+  }>;
 }
 
 const AdminPage = async ({ searchParams }: AdminPageProps) => {
-  const page = Number(searchParams.page) || 1;
-  const pageSize = Number(searchParams.pageSize) || 10;
-  const sortBy = searchParams.sortBy || 'chatCreatedAt';
-  const sortOrder = searchParams.sortOrder || 'desc';
-  const searchTerm = searchParams.search;
+  const queryparams = await searchParams;
+  const page = Number(queryparams.page) || 1;
+  const pageSize = Number(queryparams.pageSize) || 10;
+  const sortBy = queryparams.sortBy || 'chatCreatedAt';
+  const sortOrder = queryparams.sortOrder || 'desc';
+  const searchTerm = queryparams.search;
 
   const [dashboardStats, paginatedChats] = await Promise.all([
     getDashboardStats(),
