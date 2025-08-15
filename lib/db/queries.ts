@@ -10,6 +10,7 @@ import {
   gte,
   inArray,
   lt,
+  sql,
   sum,
   type SQL,
 } from 'drizzle-orm';
@@ -534,6 +535,153 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
     throw new ChatSDKError(
       'bad_request:database',
       'Failed to get stream ids by chat id',
+    );
+  }
+}
+
+export async function getAllUsers() {
+  try {
+    const users = await db
+      .select({
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        chatCount: count(chat.id),
+        totalMessages: count(message.id),
+      })
+      .from(user)
+      .leftJoin(chat, eq(user.id, chat.userId))
+      .leftJoin(message, eq(chat.id, message.chatId))
+      .groupBy(user.id, user.email, user.role)
+      .orderBy(user.email);
+
+    return users;
+  } catch (error) {
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to get all users',
+    );
+  }
+}
+
+export async function getDashboardStats() {
+  try {
+    const [userStats, chatStats, tokenStats] = await Promise.all([
+      // Total users count
+      db.select({ count: count(user.id) }).from(user),
+      
+      // Total chats count
+      db.select({ count: count(chat.id) }).from(chat),
+      
+      // Total tokens and messages
+      db.select({
+        totalInputTokens: sum(message.inputTokens),
+        totalOutputTokens: sum(message.outputTokens),
+        totalTokens: sum(message.totalTokens),
+        totalMessages: count(message.id),
+      }).from(message)
+    ]);
+
+    return {
+      totalUsers: userStats[0]?.count || 0,
+      totalChats: chatStats[0]?.count || 0,
+      totalInputTokens: tokenStats[0]?.totalInputTokens || 0,
+      totalOutputTokens: tokenStats[0]?.totalOutputTokens || 0,
+      totalTokens: tokenStats[0]?.totalTokens || 0,
+      totalMessages: tokenStats[0]?.totalMessages || 0,
+    };
+  } catch (error) {
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to get dashboard stats',
+    );
+  }
+}
+
+export async function getChatsWithTokenUsagePaginated({
+  page = 1,
+  pageSize = 10,
+  sortBy = 'chatCreatedAt',
+  sortOrder = 'desc',
+  searchTerm,
+}: {
+  page?: number;
+  pageSize?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  searchTerm?: string;
+}) {
+  try {
+    const offset = (page - 1) * pageSize;
+    
+    // Build the base query
+    let query = db
+      .select({
+        chatId: chat.id,
+        chatTitle: chat.title,
+        chatCreatedAt: chat.createdAt,
+        userId: chat.userId,
+        userEmail: user.email,
+        totalInputTokens: sum(message.inputTokens),
+        totalOutputTokens: sum(message.outputTokens),
+        totalTokens: sum(message.totalTokens),
+        messageCount: count(message.id),
+      })
+      .from(chat)
+      .innerJoin(user, eq(chat.userId, user.id))
+      .leftJoin(message, eq(chat.id, message.chatId))
+      .$dynamic();
+
+    // Add search filter if provided
+    if (searchTerm) {
+      query = query.where(sql`${chat.title} ILIKE ${`%${searchTerm}%`}`);
+    }
+
+    // Group by required fields
+    query = query.groupBy(chat.id, chat.title, chat.createdAt, chat.userId, user.email);
+
+    // Add sorting
+    const orderColumn = sortBy === 'chatCreatedAt' ? chat.createdAt : 
+                       sortBy === 'userEmail' ? user.email :
+                       sortBy === 'chatTitle' ? chat.title : chat.createdAt;
+    
+    query = query.orderBy(sortOrder === 'asc' ? asc(orderColumn) : desc(orderColumn));
+
+    // Add pagination
+    query = query.limit(pageSize).offset(offset);
+
+    const chatsWithTokens = await query;
+
+    // Get total count for pagination
+    let totalCountQuery = db
+      .select({ count: count(chat.id) })
+      .from(chat)
+      .innerJoin(user, eq(chat.userId, user.id));
+
+    if (searchTerm) {
+      totalCountQuery = totalCountQuery.where(sql`${chat.title} ILIKE ${`%${searchTerm}%`}`);
+    }
+
+    const totalCount = await totalCountQuery;
+
+    const total = totalCount[0]?.count || 0;
+    const totalPages = Math.ceil(total / pageSize);
+
+    return {
+      data: chatsWithTokens,
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages,
+        hasNextPage: page < totalPages,
+        hasPreviousPage: page > 1,
+      },
+    };
+  } catch (error) {
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to get paginated chats with token usage',
     );
   }
 }

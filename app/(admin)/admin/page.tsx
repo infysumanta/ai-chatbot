@@ -1,80 +1,114 @@
-import { getAllChatsWithTokenUsage } from '@/lib/db/queries';
+import { getDashboardStats, getChatsWithTokenUsagePaginated } from '@/lib/db/queries';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Users, MessageSquare, Zap, Activity } from 'lucide-react';
+import { ChatDataTable } from '@/components/admin/chat-data-table';
+import { chatColumns, type ChatData } from '@/components/admin/chat-columns';
 
-const AdminPage = async () => {
-  const chatsWithTokens = await getAllChatsWithTokenUsage();
+interface AdminPageProps {
+  searchParams: {
+    page?: string;
+    pageSize?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    search?: string;
+  };
+}
+
+const AdminPage = async ({ searchParams }: AdminPageProps) => {
+  const page = Number(searchParams.page) || 1;
+  const pageSize = Number(searchParams.pageSize) || 10;
+  const sortBy = searchParams.sortBy || 'chatCreatedAt';
+  const sortOrder = searchParams.sortOrder || 'desc';
+  const searchTerm = searchParams.search;
+
+  const [dashboardStats, paginatedChats] = await Promise.all([
+    getDashboardStats(),
+    getChatsWithTokenUsagePaginated({
+      page,
+      pageSize,
+      sortBy,
+      sortOrder,
+      searchTerm,
+    })
+  ]);
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
-      
-      <div className="bg-white shadow-md rounded-lg overflow-hidden">
-        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-          <h2 className="text-xl font-semibold text-gray-800">Chat List with Token Usage</h2>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Chat Title
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  User Email
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Created At
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Messages
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Input Tokens
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Output Tokens
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total Tokens
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {chatsWithTokens.map((chat) => (
-                <tr key={chat.chatId} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {chat.chatTitle}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {chat.userEmail}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(chat.chatCreatedAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {chat.messageCount}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {chat.totalInputTokens || 0}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {chat.totalOutputTokens || 0}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {chat.totalTokens || 0}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        
-        {chatsWithTokens.length === 0 && (
-          <div className="px-6 py-12 text-center text-gray-500">
-            No chats found.
-          </div>
-        )}
+    <div className="container mx-auto px-4 py-8 space-y-8">
+      <div className="flex flex-col space-y-2">
+        <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+        <p className="text-muted-foreground">
+          Manage users, monitor chats, and track token usage across your platform.
+        </p>
       </div>
+
+      {/* Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{dashboardStats.totalUsers}</div>
+            <p className="text-xs text-muted-foreground">
+              Registered accounts
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Chats</CardTitle>
+            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{dashboardStats.totalChats}</div>
+            <p className="text-xs text-muted-foreground">
+              Active conversations
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Messages</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{Number(dashboardStats.totalMessages).toLocaleString("en-US")}</div>
+            <p className="text-xs text-muted-foreground">
+              Messages exchanged
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Tokens</CardTitle>
+            <Zap className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{Number(dashboardStats.totalTokens).toLocaleString("en-US")}</div>
+            <p className="text-xs text-muted-foreground">
+              Tokens consumed
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Chats Data Table */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Chats</CardTitle>
+          <CardDescription>
+            Monitor chat activity and token usage across all conversations.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ChatDataTable 
+            columns={chatColumns} 
+            data={paginatedChats.data as ChatData[]}
+            pagination={paginatedChats.pagination}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 };
