@@ -29,6 +29,7 @@ export function SidebarUserNav({ user }: { user: User }) {
   const { setTheme, resolvedTheme } = useTheme();
 
   const isGuest = guestRegex.test(data?.user?.email ?? '');
+  const isAdmin = data?.user?.role === 'admin';
 
   return (
     <SidebarMenu>
@@ -78,6 +79,18 @@ export function SidebarUserNav({ user }: { user: User }) {
             >
               {`Toggle ${resolvedTheme === 'light' ? 'dark' : 'light'} mode`}
             </DropdownMenuItem>
+            {isAdmin && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  data-testid="user-nav-item-admin"
+                  className="cursor-pointer"
+                  onSelect={() => router.push('/admin')}
+                >
+                  Admin Dashboard
+                </DropdownMenuItem>
+              </>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild data-testid="user-nav-item-auth">
               <button
