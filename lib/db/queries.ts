@@ -656,7 +656,8 @@ export async function getChatsWithTokenUsagePaginated({
     let totalCountQuery = db
       .select({ count: count(chat.id) })
       .from(chat)
-      .innerJoin(user, eq(chat.userId, user.id));
+      .innerJoin(user, eq(chat.userId, user.id))
+      .$dynamic();
 
     if (searchTerm) {
       totalCountQuery = totalCountQuery.where(sql`${chat.title} ILIKE ${`%${searchTerm}%`}`);

@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Users, MessageSquare, Zap, Activity } from 'lucide-react';
 import { ChatDataTable } from '@/components/admin/chat-data-table';
 import { chatColumns, type ChatData } from '@/components/admin/chat-columns';
+import { AdminNavbar } from '@/components/admin/admin-navbar';
 
 interface AdminPageProps {
   searchParams: {
@@ -33,13 +34,15 @@ const AdminPage = async ({ searchParams }: AdminPageProps) => {
   ]);
 
   return (
-    <div className="container mx-auto px-4 py-8 space-y-8">
-      <div className="flex flex-col space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-        <p className="text-muted-foreground">
-          Manage users, monitor chats, and track token usage across your platform.
-        </p>
-      </div>
+    <div className="min-h-screen bg-background">
+      <AdminNavbar />
+      <div className="container mx-auto px-4 py-8 space-y-8">
+        <div className="flex flex-col space-y-2">
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Manage users, monitor chats, and track token usage across your platform.
+          </p>
+        </div>
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -109,6 +112,7 @@ const AdminPage = async ({ searchParams }: AdminPageProps) => {
           />
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 };
