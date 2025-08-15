@@ -715,3 +715,27 @@ export async function getAllChatsWithTokenUsage() {
     );
   }
 }
+
+export async function getTokenUsageByModel() {
+  try {
+    const tokensByModel = await db
+      .select({
+        model: message.model,
+        totalInputTokens: sum(message.inputTokens),
+        totalOutputTokens: sum(message.outputTokens),
+        totalTokens: sum(message.totalTokens),
+        messageCount: count(message.id),
+      })
+      .from(message)
+      .where(sql`${message.model} IS NOT NULL`)
+      .groupBy(message.model)
+      .orderBy(desc(sum(message.totalTokens)));
+
+    return tokensByModel;
+  } catch (error) {
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to get token usage by model',
+    );
+  }
+}

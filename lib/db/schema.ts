@@ -64,6 +64,7 @@ export const message = pgTable('Message_v2', {
   inputTokens: integer('inputTokens').default(0),
   outputTokens: integer('outputTokens').default(0),
   totalTokens: integer('totalTokens').default(0),
+  model: varchar('model', { length: 100 }),
 });
 
 export type DBMessage = InferSelectModel<typeof message>;

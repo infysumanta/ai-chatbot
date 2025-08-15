@@ -145,6 +145,7 @@ export async function POST(request: Request) {
           inputTokens: 0,
           outputTokens: 0,
           totalTokens: 0,
+          model: selectedChatModel,
         },
       ],
     });
@@ -219,6 +220,7 @@ export async function POST(request: Request) {
             inputTokens: usage?.inputTokens || 0,
             outputTokens: usage?.outputTokens || 0,
             totalTokens: usage?.totalTokens || 0,
+            model: selectedChatModel,
           })),
         });
       },

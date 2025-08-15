@@ -1,9 +1,10 @@
-import { getDashboardStats, getChatsWithTokenUsagePaginated } from '@/lib/db/queries';
+import { getDashboardStats, getChatsWithTokenUsagePaginated, getTokenUsageByModel } from '@/lib/db/queries';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, MessageSquare, Zap, Activity } from 'lucide-react';
 import { ChatDataTable } from '@/components/admin/chat-data-table';
 import { chatColumns, type ChatData } from '@/components/admin/chat-columns';
 import { AdminNavbar } from '@/components/admin/admin-navbar';
+import { StatsCards } from '@/components/admin/stats-cards';
+import { TokenUsageByModelTable } from '@/components/admin/token-usage-by-model-table';
 
 interface AdminPageProps {
   searchParams: Promise<{
@@ -23,7 +24,7 @@ const AdminPage = async ({ searchParams }: AdminPageProps) => {
   const sortOrder = queryparams.sortOrder || 'desc';
   const searchTerm = queryparams.search;
 
-  const [dashboardStats, paginatedChats] = await Promise.all([
+  const [dashboardStats, paginatedChats, tokenUsageByModel] = await Promise.all([
     getDashboardStats(),
     getChatsWithTokenUsagePaginated({
       page,
@@ -31,7 +32,8 @@ const AdminPage = async ({ searchParams }: AdminPageProps) => {
       sortBy,
       sortOrder,
       searchTerm,
-    })
+    }),
+    getTokenUsageByModel()
   ]);
 
   return (
@@ -46,56 +48,10 @@ const AdminPage = async ({ searchParams }: AdminPageProps) => {
         </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{dashboardStats.totalUsers}</div>
-            <p className="text-xs text-muted-foreground">
-              Registered accounts
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Chats</CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{dashboardStats.totalChats}</div>
-            <p className="text-xs text-muted-foreground">
-              Active conversations
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Messages</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{Number(dashboardStats.totalMessages).toLocaleString("en-US")}</div>
-            <p className="text-xs text-muted-foreground">
-              Messages exchanged
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Tokens</CardTitle>
-            <Zap className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{Number(dashboardStats.totalTokens).toLocaleString("en-US")}</div>
-            <p className="text-xs text-muted-foreground">
-              Tokens consumed
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <StatsCards stats={dashboardStats} />
+
+      {/* Token Usage by Model */}
+      <TokenUsageByModelTable data={tokenUsageByModel} />
 
       {/* Chats Data Table */}
       <Card>
