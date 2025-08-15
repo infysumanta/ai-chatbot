@@ -4,9 +4,11 @@ import {
   wrapLanguageModel,
 } from 'ai';
 import { xai } from '@ai-sdk/xai';
+import { openai } from '@ai-sdk/openai';
 import {
   artifactModel,
   chatModel,
+  gptModel,
   reasoningModel,
   titleModel,
 } from './models.test';
@@ -17,6 +19,7 @@ export const myProvider = isTestEnvironment
       languageModels: {
         'chat-model': chatModel,
         'chat-model-reasoning': reasoningModel,
+        'gpt-4o': gptModel,
         'title-model': titleModel,
         'artifact-model': artifactModel,
       },
@@ -28,6 +31,7 @@ export const myProvider = isTestEnvironment
           model: xai('grok-3-mini-beta'),
           middleware: extractReasoningMiddleware({ tagName: 'think' }),
         }),
+        'gpt-4o': openai('gpt-4o'),
         'title-model': xai('grok-2-1212'),
         'artifact-model': xai('grok-2-1212'),
       },

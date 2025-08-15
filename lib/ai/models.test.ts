@@ -82,3 +82,21 @@ export const artifactModel = new MockLanguageModelV2({
     rawCall: { rawPrompt: null, rawSettings: {} },
   }),
 });
+
+export const gptModel = new MockLanguageModelV2({
+  doGenerate: async () => ({
+    rawCall: { rawPrompt: null, rawSettings: {} },
+    finishReason: 'stop',
+    usage: { inputTokens: 10, outputTokens: 20, totalTokens: 30 },
+    content: [{ type: 'text', text: 'Hello from GPT-4o!' }],
+    warnings: [],
+  }),
+  doStream: async ({ prompt }) => ({
+    stream: simulateReadableStream({
+      chunkDelayInMs: 500,
+      initialDelayInMs: 1000,
+      chunks: getResponseChunksByPrompt(prompt),
+    }),
+    rawCall: { rawPrompt: null, rawSettings: {} },
+  }),
+});
