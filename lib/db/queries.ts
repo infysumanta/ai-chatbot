@@ -10,6 +10,7 @@ import {
   gte,
   inArray,
   lt,
+  sum,
   type SQL,
 } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
@@ -533,6 +534,35 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
     throw new ChatSDKError(
       'bad_request:database',
       'Failed to get stream ids by chat id',
+    );
+  }
+}
+
+export async function getAllChatsWithTokenUsage() {
+  try {
+    const chatsWithTokens = await db
+      .select({
+        chatId: chat.id,
+        chatTitle: chat.title,
+        chatCreatedAt: chat.createdAt,
+        userId: chat.userId,
+        userEmail: user.email,
+        totalInputTokens: sum(message.inputTokens),
+        totalOutputTokens: sum(message.outputTokens),
+        totalTokens: sum(message.totalTokens),
+        messageCount: count(message.id),
+      })
+      .from(chat)
+      .innerJoin(user, eq(chat.userId, user.id))
+      .leftJoin(message, eq(chat.id, message.chatId))
+      .groupBy(chat.id, chat.title, chat.createdAt, chat.userId, user.email)
+      .orderBy(desc(chat.createdAt));
+
+    return chatsWithTokens;
+  } catch (error) {
+    throw new ChatSDKError(
+      'bad_request:database',
+      'Failed to get chats with token usage',
     );
   }
 }

@@ -10,6 +10,7 @@ import {
   foreignKey,
   boolean,
   pgEnum,
+  integer,
 } from 'drizzle-orm/pg-core';
 
 export const roleEnum = pgEnum('role', ["user", 'admin']);
@@ -60,6 +61,9 @@ export const message = pgTable('Message_v2', {
   parts: json('parts').notNull(),
   attachments: json('attachments').notNull(),
   createdAt: timestamp('createdAt').notNull(),
+  inputTokens: integer('inputTokens').default(0),
+  outputTokens: integer('outputTokens').default(0),
+  totalTokens: integer('totalTokens').default(0),
 });
 
 export type DBMessage = InferSelectModel<typeof message>;

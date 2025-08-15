@@ -142,6 +142,9 @@ export async function POST(request: Request) {
           parts: message.parts,
           attachments: [],
           createdAt: new Date(),
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
         },
       ],
     });
@@ -149,6 +152,8 @@ export async function POST(request: Request) {
     const streamId = generateUUID();
     await createStreamId({ streamId, chatId: id });
 
+    let streamResult: any = null;
+    
     const stream = createUIMessageStream({
       execute: ({ writer: dataStream }) => {
         const result = streamText({
@@ -181,6 +186,7 @@ export async function POST(request: Request) {
           },
         });
 
+        streamResult = result;
         result.consumeStream();
 
         dataStream.merge(
@@ -191,6 +197,17 @@ export async function POST(request: Request) {
       },
       generateId: generateUUID,
       onFinish: async ({ messages }) => {
+        // Get token usage from the result
+        let usage = null;
+        if (streamResult) {
+          try {
+            usage = await streamResult.usage;
+
+          } catch (error) {
+            console.log('Failed to get usage info:', error);
+          }
+        }
+
         await saveMessages({
           messages: messages.map((message) => ({
             id: message.id,
@@ -199,6 +216,9 @@ export async function POST(request: Request) {
             createdAt: new Date(),
             attachments: [],
             chatId: id,
+            inputTokens: usage?.inputTokens || 0,
+            outputTokens: usage?.outputTokens || 0,
+            totalTokens: usage?.totalTokens || 0,
           })),
         });
       },
