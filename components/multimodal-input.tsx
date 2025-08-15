@@ -16,7 +16,7 @@ import {
 import { toast } from 'sonner';
 import { useLocalStorage, useWindowSize } from 'usehooks-ts';
 
-import { ArrowUpIcon, PaperclipIcon, StopIcon } from './icons';
+import { ArrowUpIcon, PaperclipIcon, StopIcon, MicrophoneIcon } from './icons';
 import { PreviewAttachment } from './preview-attachment';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
@@ -24,8 +24,9 @@ import { SuggestedActions } from './suggested-actions';
 import equal from 'fast-deep-equal';
 import type { UseChatHelpers } from '@ai-sdk/react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowDown } from 'lucide-react';
+import { ArrowDown, X, Check } from 'lucide-react';
 import { useScrollToBottom } from '@/hooks/use-scroll-to-bottom';
+import { useVoiceRecording } from '@/hooks/use-voice-recording';
 import type { VisibilityType } from './visibility-selector';
 import type { Attachment, ChatMessage } from '@/lib/types';
 
@@ -200,6 +201,35 @@ function PureMultimodalInput({
   );
 
   const { isAtBottom, scrollToBottom } = useScrollToBottom();
+  const { 
+    isRecording, 
+    isTranscribing, 
+    startRecording, 
+    stopRecording,
+    cancelRecording,
+    transcribeAudio 
+  } = useVoiceRecording();
+
+  const handleStartRecording = useCallback(async () => {
+    await startRecording();
+  }, [startRecording]);
+
+  const handleCancelRecording = useCallback(() => {
+    cancelRecording();
+  }, [cancelRecording]);
+
+  const handleConfirmRecording = useCallback(async () => {
+    const audioBlob = await stopRecording();
+    
+    if (audioBlob) {
+      const transcript = await transcribeAudio(audioBlob);
+      
+      if (transcript) {
+        setInput((prev) => prev + (prev ? ' ' : '') + transcript);
+        adjustHeight();
+      }
+    }
+  }, [stopRecording, transcribeAudio, setInput, adjustHeight]);
 
   useEffect(() => {
     if (status === 'submitted') {
@@ -305,8 +335,16 @@ function PureMultimodalInput({
         }}
       />
 
-      <div className="absolute bottom-0 p-2 w-fit flex flex-row justify-start">
+      <div className="absolute bottom-0 p-2 w-fit flex flex-row justify-start gap-1">
         <AttachmentsButton fileInputRef={fileInputRef} status={status} />
+        <VoiceButton 
+          isRecording={isRecording}
+          isTranscribing={isTranscribing}
+          onStartRecording={handleStartRecording}
+          onCancel={handleCancelRecording}
+          onConfirm={handleConfirmRecording}
+          status={status}
+        />
       </div>
 
       <div className="absolute bottom-0 right-0 p-2 w-fit flex flex-row justify-end">
@@ -416,3 +454,147 @@ const SendButton = memo(PureSendButton, (prevProps, nextProps) => {
   if (prevProps.input !== nextProps.input) return false;
   return true;
 });
+
+function PureVoiceButton({
+  isRecording,
+  isTranscribing,
+  onStartRecording,
+  onCancel,
+  onConfirm,
+  status,
+}: {
+  isRecording: boolean;
+  isTranscribing: boolean;
+  onStartRecording: () => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+  status: UseChatHelpers<ChatMessage>['status'];
+}) {
+  const [seconds, setSeconds] = useState(0);
+
+  useEffect(() => {
+    if (isRecording) {
+      setSeconds(0);
+      const interval = setInterval(() => {
+        setSeconds(prev => prev + 1);
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [isRecording]);
+
+  const formatTime = (totalSeconds: number) => {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const WaveformBar = ({ height, delay }: { height: number; delay: number }) => (
+    <motion.div
+      className="bg-foreground rounded-full"
+      style={{ width: 2 }}
+      initial={{ height: 2 }}
+      animate={{
+        height: [2, height, 2],
+      }}
+      transition={{
+        duration: 0.6,
+        repeat: Infinity,
+        delay,
+        ease: "easeInOut"
+      }}
+    />
+  );
+
+  const Waveform = () => {
+    const bars = Array.from({ length: 20 }, (_, i) => ({
+      height: 4 + Math.sin(i * 0.5) * 6 + Math.random() * 4,
+      delay: i * 0.08,
+    }));
+
+    return (
+      <div className="flex items-center justify-center gap-0.5 h-4 flex-1">
+        {bars.map((bar, index) => (
+          <WaveformBar key={index} height={bar.height} delay={bar.delay} />
+        ))}
+      </div>
+    );
+  };
+
+  // Expanded recording state
+  if (isRecording || isTranscribing) {
+    return (
+      <motion.div
+        initial={{ width: 32 }}
+        animate={{ width: isTranscribing ? 140 : 220 }}
+        transition={{ type: "spring", stiffness: 300, damping: 25 }}
+        className="bg-background border rounded-md rounded-bl-lg h-fit flex items-center px-3 py-2"
+      >
+        {isTranscribing ? (
+          <div className="flex items-center gap-2 w-full">
+            <div className="w-2 h-2 bg-primary rounded-full animate-pulse"></div>
+            <span className="text-foreground text-xs">Transcribing...</span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 w-full">
+            {/* Cancel Button */}
+            <Button
+              variant="destructive"
+              size="icon"
+              className="h-6 w-6 rounded-full p-0 flex-shrink-0"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onCancel();
+              }}
+            >
+              <X size={12} />
+            </Button>
+
+            {/* Timer */}
+            <span className="text-foreground text-xs font-mono flex-shrink-0">{formatTime(seconds)}</span>
+
+            {/* Waveform - Stretch */}
+            <Waveform />
+
+            {/* Recording dot */}
+            <div className="w-1.5 h-1.5 bg-destructive rounded-full animate-pulse flex-shrink-0"></div>
+
+            {/* Confirm Button */}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 rounded-full bg-muted hover:bg-muted/80 p-0 flex-shrink-0"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onConfirm();
+              }}
+            >
+              <Check size={12} />
+            </Button>
+          </div>
+        )}
+      </motion.div>
+    );
+  }
+
+  // Normal microphone button
+  return (
+    <Button
+      data-testid="voice-button"
+      className="rounded-md rounded-bl-lg p-[7px] h-fit dark:border-zinc-700 hover:dark:bg-zinc-900 hover:bg-zinc-200"
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        onStartRecording();
+      }}
+      disabled={status !== 'ready'}
+      variant="ghost"
+      title="Start voice recording"
+    >
+      <MicrophoneIcon size={14} />
+    </Button>
+  );
+}
+
+const VoiceButton = memo(PureVoiceButton);
